@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import time
-from period import get_multiterm_period_estimate, perform_residual_resampling
-import utils
+from punk.period import get_multiterm_period_estimate, perform_residual_resampling
+import punk.utils as utils
 from phunk.reparametrization import compute_LU_bounds
 from phunk.geometry import estimate_axes_ratio
 

@@ -1,15 +1,16 @@
-[project]
+[tool.poetry]
 name = "space-punk"
 version = "0.1.0"
 description = "A Period-UNKown rock engine!"
-authors = [
-    {name = "Odysseas Xenos",email = "odysseas.xenos@proton.me"}
-]
-license = {text = "MIT"}
-requires-python = ">=3.8"
-dependencies = [
-]
+authors = ["Odysseas Xenos <odysseas.xenos@proton.me>"]
+license = "MIT"
 
+packages = [{ include = "punk" }]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+numpy = "*"
+scipy = "*"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
