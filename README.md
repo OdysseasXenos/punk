@@ -14,12 +14,12 @@ It is designed for large survey data (e.g. LSST, ZTF), where traditional lightcu
 5. Shape (triaxial ellipsoid: $a/b, a/c$)
 
 - Works with sparse, irregularly sampled photometry
-- Multi-band fitting → directly retrieves colors
+- Multi-band fitting
 - Scalable to large datasets (survey-ready)
 - Built-in:
 1. Period search (Lomb–Scargle + model selection)
 2. Alias rejection
-3. Smart initialization via ```sHG1G2``` (citation needed)
+3. Initialization via ```sHG1G2``` (citation needed)
 
 ### Installation
 ```
@@ -48,7 +48,7 @@ p0, metadata = initialize(pc, weights=pc.mag_err, remap=True, metadata=False)
 pc.fit(models=["SOCCA"], p0=p0, weights=pc.mag_err, remap=True)
 ```
 
-### How ```punk``` Works (High-Level Pipeline)
+### How ```punk``` Works 
 The fitting process is staged to avoid local minima:
 - Initial Fit with ```sHG1G2```
 - Provides:
