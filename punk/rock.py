@@ -7,71 +7,61 @@ from phunk.reparametrization import compute_LU_bounds
 from phunk.geometry import estimate_axes_ratio
 
 
-def initialize(phase_curve, remap=True, weights=None, metadata=False):
+def initialize(
+    phase_curve, remap=True, weights=None, metadata=False, force_period=None
+):
     """
-    Fit a small solar system object's photometric data using SHG1G2 or SOCCA models.
+    Initialize a SOCCA model fit using SHG1G2 pre-fitting, period estimation,
+    and pole/period grid search.
 
-    This function can perform either a standard SHG1G2 fit or a spin- and
-    shape-constrained SOCCA fit, optionally including blind scans over
-    initial pole positions and periods. It supports filtering data by survey.
+    This function performs a preliminary sHG1G2 fit to the input phase curve,
+    computes residuals, and derives an initial estimate of the synodic period.
+    It then explores a grid of trial rotation periods and spin pole orientations
+    to determine optimal starting parameters for a SOCCA inversion.
+
+    The initialization includes:
+    - Residual-based period estimation (or user-imposed period)
+    - Determination of a period scan range based on heliocentric distance
+    - Construction of an RMS landscape over spin pole coordinates
+    - Detection of local minima in pole space for initialization
+    - Estimation of shape parameters (axis ratios)
+    - Grid search over (period, pole) combinations to minimize SOCCA RMS
 
     Parameters
     ----------
-    data : pandas.DataFrame single-row
-        Input dataset containing photometry and geometry with columns:
-        - 'cmred': reduced magnitudes
-        - 'csigmapsf': uncertainties
-        - 'Phase': solar phase angles (deg)
-        - 'cfid': filter IDs
-        - 'ra', 'dec': coordinates (deg)
-        - 'cjd': observation times (light-time corrected)
-        Optional (for terminator fits):
-        - 'ra_s', 'dec_s': sub-solar point coordinates (deg)
-    flavor : str
-        Model type to fit. Must be 'SHG1G2' or 'SOCCA'.
-    shg1g2_constrained : bool, optional
-        Whether to constrain the SOCCA fit using a prior SHG1G2 solution. Default True.
-    period_blind : bool, optional
-        If True, perform a small grid search over initial periods. Default True.
-    pole_blind : bool, optional
-        If True, perform a grid search over 12 initial poles all over a sphere. Default True.
-        If False, produce the sHG1G2 rms error landscape and initialize SOCCA poles on its local minima
-    p0 : list, optional
-        Initial guess parameters for the fit. Required if `shg1g2_constrained=False`.
-    alt_spin : bool, optional
-        For SOCCA constrained fits, use the antipodal spin solution. Default False.
-    period_in : float, optional
-        Input synodic period (days) to override automatic estimation. Default None.
-    period_quality_flag : bool, optional
-        Provide bootstrap score, alias/true (0/1) flags and period fit rms for the period estimates
-    terminator : bool, optional
-        If True, include self-shading in the fit. Default False.
-    time_me : bool, optional
-        If True, include timing (in seconds). Default True.
+    phase_curve : object
+        Phase curve object containing photometric and geometric data.
+        Must provide attributes and methods:
+        - `phase`, `ra`, `dec`, `mag`, `mag_err`, `epoch`
+        - `band`, `bands`
+        - `Dhelio`
+        - `fit(models=..., p0=..., remap=..., weights=...)`
+        - fitted model access via `phase_curve.sHG1G2` and `phase_curve.SOCCA`
+    remap : bool, optional
+        Whether to remap parameters during SOCCA fitting. Default is True.
+    weights : array-like or None, optional
+        Optional weights for the SOCCA fit. Default is None.
+    metadata : bool, optional
+        If True, return diagnostic information including execution time and
+        bootstrap score from period estimation. Default is False.
+    force_period : float or None, optional
+        If provided, bypass automatic period estimation and use this value
+        (in days) as the central period for the scan. Default is None.
 
     Returns
     -------
-    dict or tuple
-        If `flavor='SHG1G2'`:
-            dict
-                Best-fit SHG1G2 parameters.
-        If `flavor='SOCCA'`:
-            dict
-                Best-fit SOCCA parameters.
-
-    Notes
-    -----
-    - For SOCCA fits with `shg1g2_constrained=True`, the function first performs
-      a SHG1G2 fit to constrain H, G1, G2, and shape parameters.
-    - Blind scans systematically vary initial pole positions and period to find
-      the optimal fit when `blind_scan=True`.
-
-    Raises
-    ------
-    ValueError
-        If `flavor` is not 'SHG1G2' or 'SOCCA'.
+    opt_p0 : dict
+        Dictionary of optimal initial parameters for the SOCCA model, including:
+        - Photometric parameters (H, G1, G2 per band)
+        - Spin parameters (`period`, `alpha`, `delta`)
+        - Shape parameters (`a_b`, `a_c`)
+        - Initial rotation phase (`W0`)
+    QA_dict : dict
+        Dictionary containing quality assessment metrics. Returned empty if
+        `metadata=False`. Otherwise may include:
+        - "Inversion time (seconds)"
+        - "Bootstrap score"
     """
-
     # We give the phase curve our sHG1G2 attributes
     if metadata:
         t1 = time.time()
@@ -102,32 +92,39 @@ def initialize(phase_curve, remap=True, weights=None, metadata=False):
         }
     )
     # Period search boundaries (in days)
-    pmin, pmax = 5e-2, 1e4
-    try:
-        p_in, k_val, p_rms, signal_peaks, window_peaks = get_multiterm_period_estimate(
-            residuals_dataframe, p_min=pmin, p_max=pmax, k_free=True
-        )
-        if metadata:
-            _, Nbs = perform_residual_resampling(
-                resid_df=residuals_dataframe,
-                p_min=pmin,
-                p_max=pmax,
-                k=int(k_val),
+    if force_period is None:
+        pmin, pmax = 5e-2, 1e4
+        try:
+            p_in, k_val, p_rms, signal_peaks, window_peaks = (
+                get_multiterm_period_estimate(
+                    residuals_dataframe, p_min=pmin, p_max=pmax, k_free=True
+                )
             )
-    except KeyError:
-        # If more than 10 terms are required switch to fast rotator:
-        pmin, pmax = 5e-3, 5e-2
+            if metadata:
+                _, Nbs = perform_residual_resampling(
+                    resid_df=residuals_dataframe,
+                    p_min=pmin,
+                    p_max=pmax,
+                    k=int(k_val),
+                )
+        except KeyError:
+            # If more than 10 terms are required switch to fast rotator:
+            pmin, pmax = 5e-3, 5e-2
 
-        p_in, k_val, p_rms, signal_peaks, window_peaks = get_multiterm_period_estimate(
-            residuals_dataframe, p_min=pmin, p_max=pmax, k_free=True
-        )
-        if metadata:
-            _, Nbs = perform_residual_resampling(
-                resid_df=residuals_dataframe,
-                p_min=pmin,
-                p_max=pmax,
-                k=int(k_val),
+            p_in, k_val, p_rms, signal_peaks, window_peaks = (
+                get_multiterm_period_estimate(
+                    residuals_dataframe, p_min=pmin, p_max=pmax, k_free=True
+                )
             )
+            if metadata:
+                _, Nbs = perform_residual_resampling(
+                    resid_df=residuals_dataframe,
+                    p_min=pmin,
+                    p_max=pmax,
+                    k=int(k_val),
+                )
+    else:
+        p_in = force_period
     period_sy = p_in
     # Add heliocentric distance mean
     sma = phase_curve.Dhelio.mean()  # in AU
@@ -149,7 +146,7 @@ def initialize(phase_curve, remap=True, weights=None, metadata=False):
     decrange = np.arange(-90, 90, 5)
     rms_landscape = np.ones(shape=(len(rarange), len(decrange)))
 
-    ############################
+    # Initialize axes ratios from lightcurve amplitude
     for band in phase_curve.bands:
         mask = bands == band
 
@@ -163,7 +160,6 @@ def initialize(phase_curve, remap=True, weights=None, metadata=False):
         residuals[mask] = model - phase_curve.mag[mask]
 
     a_b, a_c = estimate_axes_ratio(residuals, phase_curve.sHG1G2.R)
-    ############################
 
     for i, ra0 in enumerate(rarange):
         for j, dec0 in enumerate(decrange):

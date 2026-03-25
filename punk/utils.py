@@ -1,6 +1,7 @@
 import numpy as np
 import astropy.constants as const
 
+
 def calculate_reduced_magnitude(magnitude, D_observer, D_sun):
     """
     Calculate reduced magnitude
@@ -75,6 +76,7 @@ def calc_atan_parameter(ra, dec, ra0, dec0):
     x = np.cos(dec0) * np.sin(dec) - np.sin(dec0) * np.cos(dec) * np.cos(ra - ra0)
     y = np.cos(dec) * np.sin(ra - ra0)
     return np.arctan2(x, y)
+
 
 def angle_after_one_synodic_period(angle, synodic_period, rate):
     """
@@ -300,7 +302,6 @@ def gaussian_interpolate(data, factor=4, sigma=1.0):
 
 
 def detect_local_minima(arr):
-    # import scipy.ndimage.filters as filters
     from scipy.ndimage import generate_binary_structure, minimum_filter, binary_erosion
 
     # https://stackoverflow.com/questions/3684484/peak-detection-in-a-2d-array/3689710#3689710
