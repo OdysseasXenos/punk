@@ -66,12 +66,12 @@ The fitting process is staged to avoid local minima:
 
 ### Photometric model
 The observed apparent magnitude $m$ is modeled as:
-$$ m = H + f(r,\Delta) + g(\gamma) + s(\alpha, \delta, P_\text{sid}, a/b, a/c, W_0) $$
+$$m = H + f(r,\Delta) + g(\gamma) + s(\alpha, \delta, P_\text{sid}, a/b, a/c, W_0)$$
 
 where:
-- $ f(r,\Delta)=5\log_{10}(r,\Delta) $ accounts for the object-observer distance variation
-- $ g(\gamma) $ is the phase function which accounts for the variations due to the Sun-object-observer angle ($\gamma$)
+- $f(r,\Delta)=5\log_{10}(r,\Delta)$ accounts for the object-observer distance variation
+- $g(\gamma)$ is the phase function which accounts for the variations due to the Sun-object-observer angle ($\gamma$)
 with 
-$$ g(\gamma) = -2.5\log_{10}(G_1\phi_1(\gamma) + G_2\phi_2(\gamma) + (1-G_1-G_2)\phi_3(\gamma)) $$
+$$g(\gamma) = -2.5\log_{10}(G_1\phi_1(\gamma) + G_2\phi_2(\gamma) + (1-G_1-G_2)\phi_3(\gamma))$$
 and the function $s$
 which models the photometric variation coming from the projection of a spinning triaxial ellipsoid.
